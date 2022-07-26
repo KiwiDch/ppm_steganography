@@ -2,7 +2,7 @@ use image::GenericImageView;
 
 pub mod error {
     #[derive(Debug)]
-    pub enum SteganoError {
+    pub enum SteganoError { //can be better
         MessageTooLong,
         BadFormat,
         ImpossibleToParse
@@ -154,15 +154,16 @@ pub mod decoder {
 
 
 fn open_image_ppn_only(path: std::path::PathBuf) -> Result<image::DynamicImage, Box<dyn std::error::Error>> {
-    let image = image::open(path.clone())?;
 
-    let format = image::guess_format(&std::fs::read(path)?[..])?;
+    let decoder = image::codecs::pnm::PnmDecoder::new(std::io::BufReader::new(std::fs::File::open(path)?))?;
 
-    if format != image::ImageFormat::Pnm {
+    if let image::codecs::pnm::PnmSubtype::Pixmap(_) = decoder.subtype() {
+        let image = image::DynamicImage::from_decoder(decoder)?;
+        Ok(image)
+    }
+    else {
         return Err(error::SteganoError::BadFormat.into());
     }
-
-    Ok(image)
 }
 
 fn image_to_vec_rgb(image: &image::DynamicImage) -> Vec<u8> {
