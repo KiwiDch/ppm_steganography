@@ -1,3 +1,4 @@
+use error::SteganoError;
 use image::GenericImageView;
 
 pub mod error {
@@ -5,18 +6,32 @@ pub mod error {
     pub enum SteganoError { //can be better
         MessageTooLong,
         BadFormat,
-        ImpossibleToParse
+        ImpossibleToParse,
+        FileError(std::io::Error),
+        ImageError(image::error::ImageError)
+    }
+
+    impl From<std::io::Error> for SteganoError {
+        fn from(e : std::io::Error) -> Self {
+            SteganoError::FileError(e)
+        }
+    }
+
+    impl From<image::error::ImageError> for SteganoError {
+        fn from(e : image::error::ImageError) -> Self {
+            SteganoError::ImageError(e)
+        }
     }
 
     impl std::fmt::Display for SteganoError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let msg = match self {
-                SteganoError::MessageTooLong => "Message is too long",
-                SteganoError::BadFormat => "Incompatible format",
-                SteganoError::ImpossibleToParse => "Impossible to parse the hidden message"
-            };
-
-            write!(f,"{msg}")
+            match self {
+                SteganoError::MessageTooLong => write!(f,"Message is too long"),
+                SteganoError::BadFormat => write!(f,"Incompatible format"),
+                SteganoError::ImpossibleToParse =>  write!(f,"Impossible to parse the hidden message"),
+                SteganoError::FileError(e) => e.fmt(f),
+                SteganoError::ImageError(e) => e.fmt(f),
+            }
         }
     }
 
@@ -25,7 +40,7 @@ pub mod error {
 
 pub mod encoder {
     use crate::error::SteganoError;
-    use crate::{open_image_ppn_only,image_to_vec_rgb};
+    use crate::{open_image_ppm_only,image_to_vec_rgb};
 
     use image::DynamicImage;
     pub struct Encoder {
@@ -35,8 +50,8 @@ pub mod encoder {
 
     impl Encoder {
 
-        pub fn new(path: std::path::PathBuf) -> Result<Self,Box<dyn std::error::Error>> {
-            let image = open_image_ppn_only(path)?;
+        pub fn new(path: std::path::PathBuf) -> Result<Self,SteganoError> {
+            let image = open_image_ppm_only(path)?;
             
             Ok(Encoder { 
                 image,
@@ -62,7 +77,7 @@ pub mod encoder {
 
         //Stegonography protocol: data/STO(u8 *3).
         //The protocol use 2 LSB per Bytes to write the message, maybe an adaptative bit/bytes will be available in the future.
-        pub fn encode_and_save(self, output_path: std::path::PathBuf) -> Result<(), Box<dyn std::error::Error>>{
+        pub fn encode_and_save(self, output_path: std::path::PathBuf) -> Result<(), SteganoError>{
 
             let mut output_img= image::ImageBuffer::new(self.image.width(), self.image.height());
             let mut image_bytes_composante:Vec<u8> = image_to_vec_rgb(&self.image);
@@ -86,15 +101,15 @@ pub mod encoder {
 
 pub mod decoder {
     use image::DynamicImage;
-    use crate::{open_image_ppn_only,image_to_vec_rgb};
+    use crate::{open_image_ppm_only,image_to_vec_rgb};
     use crate::error::SteganoError;
     pub struct Decoder {
         image: DynamicImage,
     }
 
     impl Decoder {
-        pub fn new(path: std::path::PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
-            let image = open_image_ppn_only(path)?;
+        pub fn new(path: std::path::PathBuf) -> Result<Self, SteganoError> {
+            let image = open_image_ppm_only(path)?;
             Ok(
                 Decoder {
                     image
@@ -153,7 +168,7 @@ pub mod decoder {
 }
 
 
-fn open_image_ppn_only(path: std::path::PathBuf) -> Result<image::DynamicImage, Box<dyn std::error::Error>> {
+fn open_image_ppm_only(path: std::path::PathBuf) -> Result<image::DynamicImage, SteganoError> {
 
     let decoder = image::codecs::pnm::PnmDecoder::new(std::io::BufReader::new(std::fs::File::open(path)?))?;
 
