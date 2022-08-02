@@ -13,11 +13,10 @@ fn main() {
     encoder.encode_and_save(std::path::PathBuf::from_str("examples/kiwi_hidden_image.ppm").unwrap()).unwrap();
 }
 ```
-![Original image](examples/kiwi.ppm)    
-![Image to hide](examples/to_hide.ppm)    
-![Result](examples/kiwi_hidden_image.ppm)     
-
 see ./examples for others
+
+[Crates.io](https://crates.io/crates/ppm_steganography)
+[Docs.rs](https://docs.rs/ppm_steganography/0.1.0/ppm_steganography/)
 
 ## Licence
 [MIT Licence](https://spdx.org/licenses/MIT.html) or [Apache 2.0](https://spdx.org/licenses/Apache-2.0.html)
