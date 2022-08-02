@@ -2,7 +2,7 @@
 A small crate to hide data using 2 lsb of each bytes into a ppm image
 ## Usage
 encoding image from ./examples/encode_img
-```
+```rust
 use std::str::FromStr;
 
 fn main() {
