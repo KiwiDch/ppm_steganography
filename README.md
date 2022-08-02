@@ -13,9 +13,9 @@ fn main() {
     encoder.encode_and_save(std::path::PathBuf::from_str("examples/kiwi_hidden_image.ppm").unwrap()).unwrap();
 }
 ```
-![Original image](examples/kiwi.ppm)
-![Image to hide](examples/to_hide.ppm)
-![Result](examples/kiwi_hidden_image.ppm)
+![Original image](examples/kiwi.ppm)    
+![Image to hide](examples/to_hide.ppm)    
+![Result](examples/kiwi_hidden_image.ppm)     
 
 see ./examples for others
 
