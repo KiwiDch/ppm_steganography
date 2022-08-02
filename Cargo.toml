@@ -1,5 +1,5 @@
 [package]
-name = "steganography"
+name = "ppm_steganography"
 authors = ["Elian Ducheyne <elian.ducheyne@gmail.com>"]
 version = "0.1.0"
 edition = "2021"

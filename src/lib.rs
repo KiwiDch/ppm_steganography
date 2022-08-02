@@ -27,7 +27,7 @@ pub mod error {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
                 SteganoError::MessageTooLong => write!(f,"Message is too long"),
-                SteganoError::BadFormat => write!(f,"Incompatible format"),
+                SteganoError::BadFormat => write!(f,"Incompatible format(Only .ppm image)"),
                 SteganoError::ImpossibleToParse =>  write!(f,"Impossible to parse the hidden message"),
                 SteganoError::FileError(e) => e.fmt(f),
                 SteganoError::ImageError(e) => e.fmt(f),
