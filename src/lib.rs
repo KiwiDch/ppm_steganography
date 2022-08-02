@@ -39,6 +39,7 @@ pub mod error {
 }
 
 pub mod encoder {
+    //! Encoder write data on the 2 lsb on each bytes of the image given
     use std::io::Read;
 
     use crate::error::SteganoError;
@@ -52,6 +53,10 @@ pub mod encoder {
 
     impl Encoder {
 
+
+        ///Create a new [`Encoder`] for steganography
+        ///# Error
+        ///May return [`crate::error::SteganoError::BadFormat`] or [`crate::error::SteganoError::ImageError`]
         pub fn new(path: std::path::PathBuf) -> Result<Self,SteganoError> {
             let image = open_image_ppm_only(path)?;
             
@@ -61,11 +66,17 @@ pub mod encoder {
             })
         }
 
+        ///Try to update the hidden message from &str
+        ///# Error
+        ///Same error than [`Encoder::try_update_from_bytes`]
         pub fn try_update_message(&mut self, message: &str) -> Result<(), SteganoError>{
             self.try_update_from_bytes(message.as_bytes())?;
             Ok(())
         }
 
+         ///Try to update the hidden message from bytes arrays
+        ///# Error
+        ///May return [`crate::error::SteganoError::MessageTooLong`] if the image doesn't contains enough bytes to write the message
         pub fn try_update_from_bytes(&mut self,message: &[u8])-> Result<(),SteganoError> {
             let message = [message,b"STO"].concat();
 
@@ -79,6 +90,10 @@ pub mod encoder {
             Ok(())
         }
 
+
+        ///Try to update the hidden message from file path
+        ///# Error
+        ///Same error than [`Encoder::try_update_from_bytes`] and [`crate::error::SteganoError::FileError`]
         pub fn try_update_from_file(&mut self, path: std::path::PathBuf) -> Result<(),SteganoError> {
             let msg = std::fs::File::open(path)?;
             let mut reader = std::io::BufReader::new(msg);
@@ -90,6 +105,9 @@ pub mod encoder {
 
 
         //Stegonography format: data/STO(u8 *3).
+        ///Encode the message bytes on 2 bits/bytes of the original image and save the result at the given path
+        /// # Error
+        /// May be [`crate::error::SteganoError::FileError`]
         pub fn encode_and_save(self, output_path: std::path::PathBuf) -> Result<(), SteganoError>{
 
             let mut output_img= image::ImageBuffer::new(self.image.width(), self.image.height());
@@ -116,10 +134,12 @@ pub mod encoder {
 }
 
 pub mod decoder {
+    //! Decoder try to find data written with the same format of the Encoder
     use std::io::Write;
     use image::DynamicImage;
     use crate::{open_image_ppm_only,image_to_vec_rgb};
     use crate::error::SteganoError;
+
 
     pub struct Data {
         data: Vec<u8>
