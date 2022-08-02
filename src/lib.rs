@@ -3,7 +3,7 @@ use image::GenericImageView;
 
 pub mod error {
     #[derive(Debug)]
-    pub enum SteganoError { //can be better
+    pub enum SteganoError {
         MessageTooLong,
         BadFormat,
         ImpossibleToParse,
@@ -39,6 +39,8 @@ pub mod error {
 }
 
 pub mod encoder {
+    use std::io::Read;
+
     use crate::error::SteganoError;
     use crate::{open_image_ppm_only,image_to_vec_rgb};
 
@@ -60,30 +62,44 @@ pub mod encoder {
         }
 
         pub fn try_update_message(&mut self, message: &str) -> Result<(), SteganoError>{
-                    
-            if self.buf.len() * 4 > 3 * (self.image.width()*self.image.height()) as usize {
-                return Err(SteganoError::MessageTooLong.into());
+            self.try_update_from_bytes(message.as_bytes())?;
+            Ok(())
+        }
+
+        pub fn try_update_from_bytes(&mut self,message: &[u8])-> Result<(),SteganoError> {
+            let message = [message,b"STO"].concat();
+
+
+            if  message.len() * 4 > 3 * (self.image.width()*self.image.height()) as usize {
+                return Err(SteganoError::MessageTooLong);
             }
 
-            self.buf.clear();
-
-            [message.as_bytes(),b"STO"].concat()
-            .into_iter()
-            .for_each(|element| {self.buf.push(element);});
+            self.buf = message;
 
             Ok(())
         }
 
+        pub fn try_update_from_file(&mut self, path: std::path::PathBuf) -> Result<(),SteganoError> {
+            let msg = std::fs::File::open(path)?;
+            let mut reader = std::io::BufReader::new(msg);
+            let mut buf = Vec::new();
+            reader.read_to_end(&mut buf)?;
+            self.try_update_from_bytes(&buf)?;
+            Ok(())
+        }
 
-        //Stegonography protocol: data/STO(u8 *3).
-        //The protocol use 2 LSB per Bytes to write the message, maybe an adaptative bit/bytes will be available in the future.
+
+        //Stegonography format: data/STO(u8 *3).
         pub fn encode_and_save(self, output_path: std::path::PathBuf) -> Result<(), SteganoError>{
 
             let mut output_img= image::ImageBuffer::new(self.image.width(), self.image.height());
             let mut image_bytes_composante:Vec<u8> = image_to_vec_rgb(&self.image);
         
-            for (i, composant) in image_bytes_composante[..self.buf.len() * 4].iter_mut().enumerate() { //message_with_protocol.len() * 4 correspond au nombre d'octet que va prendre un message codé sur 2 lsb (8/2)
-                *composant = (*composant & 0b11111100) + (self.buf[(i as f32* (2f32/8f32)) as usize] >> (8 - ((i % 4) * 2 + 2)) & 0b00000011);
+            for (i, composant) in image_bytes_composante[..self.buf.len() * 4].iter_mut().enumerate() { //correspond au nombre d'octet que va prendre un message codé sur 2 lsb (8/2)
+                if (i as f32 * (2f32/8f32)) as usize >= self.buf.len(){
+                    break;
+                }
+                *composant = (*composant & 0b11111100) + (self.buf[(i as f32 * (2f32/8f32)) as usize] >> (8 - ((i % 4) * 2 + 2)) & 0b00000011);
             }
         
             let mut new_img_data = image_bytes_composante.into_iter();
@@ -100,9 +116,38 @@ pub mod encoder {
 }
 
 pub mod decoder {
+    use std::io::Write;
     use image::DynamicImage;
     use crate::{open_image_ppm_only,image_to_vec_rgb};
     use crate::error::SteganoError;
+
+    pub struct Data {
+        data: Vec<u8>
+    }
+    
+    impl Data {
+        pub fn try_as_text(self) -> Result<String, SteganoError> {
+            let contenu = std::string::String::from_utf8(self.data[..self.data.len()-3].to_vec());
+            if contenu.is_err() {
+                Err(SteganoError::ImpossibleToParse)
+            }
+            else {
+                Ok(contenu.unwrap())
+            }
+        }
+
+        pub fn data(&self) -> &Vec<u8> {
+            &self.data
+        }
+
+        pub fn save_to_file(self,path: std::path::PathBuf) -> Result<(),SteganoError> {
+            let file = std::fs::File::create(path)?;
+            let mut writer = std::io::BufWriter::new(file);
+            writer.write_all(&self.data[..self.data.len()-3])?;
+            Ok(())
+        }
+    }
+
     pub struct Decoder {
         image: DynamicImage,
     }
@@ -117,7 +162,7 @@ pub mod decoder {
             )
         }
 
-        pub fn decode(self) -> Result<Option<String>,SteganoError> {
+        pub fn decode(self) -> Result<Option<Data>,SteganoError> {
             let bytes_img = image_to_vec_rgb(&self.image);
             let bytes_parsed = self.parse(&bytes_img[..]);
             
@@ -127,13 +172,12 @@ pub mod decoder {
             }
 
             let bytes_parsed = bytes_parsed.unwrap();
-            let contenu = std::string::String::from_utf8(bytes_parsed[..bytes_parsed.len()-3].to_vec());
-            if contenu.is_err() {
-                Err(SteganoError::ImpossibleToParse)
-            }
-            else {
-                Ok(Some(contenu.unwrap()))
-            }
+
+            let data = Data {
+                data: bytes_parsed,
+            };
+
+            Ok(Some(data))
         }
 
         fn parse(&self, bytes: &[u8]) -> Result<Vec<u8>,SteganoError> {
